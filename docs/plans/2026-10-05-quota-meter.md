@@ -19,10 +19,11 @@
 - Hooks modules run with no DOM and no Node: everything outside goes through `$`. Elements come from `$.ui.resolve(e)`.
 - In tests, engine *operations* (`session.usage`, `command.register`) are answered as `{ value: ... }`; *events* (`session.start`, `session.measure`, `turn.complete`, `session.end`, `ui.render`) are answered with their result.
 - Window durations: `five_hour` = 5 h, `seven_day` = 168 h. Ideal pace is linear, 24/7.
+- Placeholders: `$SCRATCH` is any folder outside the repo, `<mod folder>` is the mod's absolute path, and `<session-id>` is the id of the session authoring the mod.
 - Verification commands (all three must pass before any commit that touches `hooks/` or `types/`):
   - `claude plugin validate ~/.claude/mods/quota-meter` → `✔ Validation passed`
   - `claude plugin test ~/.claude/mods/quota-meter` → `0 fail`
-  - `npx -y -p typescript@5 tsc -p /private/tmp/claude-501/-Users-kleyson/439312a2-b0f0-4e89-bdfa-a4286836eb24/scratchpad/tsconfig.check.json` → exit 0, no output
+  - `npx -y -p typescript@5 tsc -p $SCRATCH/tsconfig.check.json` → exit 0, no output
 
 ## Review Focus
 
@@ -38,7 +39,7 @@
 
 **Files:**
 - Create: `.claude-plugin/plugin.json`, `hooks/hooks.json`, `types/index.d.ts`, `hooks/register.tsx` (minimal), `hooks/pace.ts`, `hooks/pace.test.ts`
-- Create (outside the repo): `/private/tmp/claude-501/-Users-kleyson/439312a2-b0f0-4e89-bdfa-a4286836eb24/scratchpad/tsconfig.check.json`
+- Create (outside the repo): `$SCRATCH/tsconfig.check.json`
 
 **Interfaces:**
 - Produces (`hooks/pace.ts`): `type PaceStatus = 'under' | 'near' | 'over'`; `windowDuration(kind: string): number | undefined`; `windowLabel(kind: string): string`; `isExpired(resetsAt: string | undefined, now: number): boolean`; `idealPercent(kind: string, resetsAt: string | undefined, now: number): number | undefined`; `formatCountdown(ms: number): string`; `formatTokens(count: number): string`; `formatUsd(usd: number): string`; `paceStatus(real: number, ideal: number | undefined): PaceStatus`.
@@ -96,7 +97,7 @@ import type { Register } from 'claude-code'
 export const register: Register = () => {}
 ```
 
-`/private/tmp/claude-501/-Users-kleyson/439312a2-b0f0-4e89-bdfa-a4286836eb24/scratchpad/tsconfig.check.json` (outside the repo; it names the engine's type file, which lives under the session's temp folder):
+`$SCRATCH/tsconfig.check.json` (outside the repo; it names the engine's type file, which lives under the session's temp folder):
 
 ```json
 {
@@ -108,9 +109,9 @@ export const register: Register = () => {}
     "jsx": "react", "jsxFactory": "h", "jsxFragmentFactory": "Fragment"
   },
   "include": [
-    "/private/tmp/claude-501/bundled-skills/2.1.289/29b3e063696bfd33a8e0ebf99a2a27cb/plugin-authoring/types/claude-code.d.ts",
-    "/Users/kleyson/.claude/mods/quota-meter/hooks",
-    "/Users/kleyson/.claude/mods/quota-meter/types"
+    "<claude-code.d.ts named by the plugin-authoring skill>",
+    "<mod folder>/hooks",
+    "<mod folder>/types"
   ]
 }
 ```
@@ -337,7 +338,7 @@ export const paceStatus = (real: number, ideal: number | undefined): PaceStatus 
 
 Run: `claude plugin test ~/.claude/mods/quota-meter` → Expected: `hooks/pace.test.ts` all pass, `0 fail`.
 Run: `claude plugin validate ~/.claude/mods/quota-meter` → Expected: `✔ Validation passed`.
-Run: `npx -y -p typescript@5 tsc -p /private/tmp/claude-501/-Users-kleyson/439312a2-b0f0-4e89-bdfa-a4286836eb24/scratchpad/tsconfig.check.json` → Expected: exit 0.
+Run: `npx -y -p typescript@5 tsc -p $SCRATCH/tsconfig.check.json` → Expected: exit 0.
 
 - [ ] **Step 6: Commit**
 
@@ -943,20 +944,20 @@ git commit -m "feat: draw the quota band above the prompt and add /quota toggle"
 ### Task 4: Live preview in the authoring session
 
 **Files:**
-- Create (outside the repo): link `~/.claude/dev-mods/439312a2-b0f0-4e89-bdfa-a4286836eb24/quota-meter` → `~/.claude/mods/quota-meter`
+- Create (outside the repo): link `~/.claude/dev-mods/<session-id>/quota-meter` → `~/.claude/mods/quota-meter`
 - Modify (only if the engine writes files into the mod): `.gitignore`
 
 - [ ] **Step 1: Link the mod into the session's hot-reload folder**
 
 ```bash
-ln -s ~/.claude/mods/quota-meter ~/.claude/dev-mods/439312a2-b0f0-4e89-bdfa-a4286836eb24/quota-meter
+ln -s ~/.claude/mods/quota-meter ~/.claude/dev-mods/<session-id>/quota-meter
 ```
 
 The engine asks the owner once: "Enable hot reloading for this session?" The owner answers `Enable for this session`. The mod loads when the turn ends.
 
 - [ ] **Step 2: Confirm it loaded**
 
-At the start of the next turn the engine's notice says what the load came to. Expected: `quota-meter` loaded, no `refused` or `did not load` line in the transcript. If the notice says the folder is empty or the plugin is missing (the watcher did not follow the link), replace the link with a copy: `rm ~/.claude/dev-mods/439312a2-b0f0-4e89-bdfa-a4286836eb24/quota-meter && cp -R ~/.claude/mods/quota-meter ~/.claude/dev-mods/439312a2-b0f0-4e89-bdfa-a4286836eb24/quota-meter`, and repeat the copy after each later edit.
+At the start of the next turn the engine's notice says what the load came to. Expected: `quota-meter` loaded, no `refused` or `did not load` line in the transcript. If the notice says the folder is empty or the plugin is missing (the watcher did not follow the link), replace the link with a copy: `rm ~/.claude/dev-mods/<session-id>/quota-meter && cp -R ~/.claude/mods/quota-meter ~/.claude/dev-mods/<session-id>/quota-meter`, and repeat the copy after each later edit.
 
 - [ ] **Step 3: Check the band by eye (owner)**
 
@@ -1013,7 +1014,7 @@ Expected: `{'CLAUDE_CODE_PLUGIN_DIRS': '~/.claude/mods/quota-meter'}`
 - [ ] **Step 2: Remove the session preview so nothing loads twice**
 
 ```bash
-rm -rf ~/.claude/dev-mods/439312a2-b0f0-4e89-bdfa-a4286836eb24/quota-meter
+rm -rf ~/.claude/dev-mods/<session-id>/quota-meter
 ```
 
 - [ ] **Step 3: Write `README.md`**
