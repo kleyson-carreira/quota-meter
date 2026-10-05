@@ -2,6 +2,11 @@
   "name": "quota-meter",
   "version": "0.1.0",
   "description": "Band above the prompt: 5-hour and weekly quota vs. ideal pace, time to reset, session tokens and cost",
-  "author": { "name": "Kleyson Carreira" },
+  "author": {
+    "name": "Kleyson Carreira"
+  },
+  "homepage": "https://github.com/kleyson-carreira/quota-meter",
+  "repository": "https://github.com/kleyson-carreira/quota-meter",
+  "license": "MIT",
   "types": "./types/index.d.ts"
 }
