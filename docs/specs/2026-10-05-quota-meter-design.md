@@ -56,7 +56,7 @@ session  1.24M tok (out 82k) · $3.47
 | --- | --- | --- |
 | `five_hour` | 5 h | `5h` |
 | `seven_day` | 168 h | `7d` |
-| anything else (e.g. `spend_limit`) | unknown | `lim` — bar and percent only, no marker or countdown |
+| anything else (e.g. `spend_limit`) | unknown | `lim` — bar and percent, no marker; a countdown only when the engine reports `resetsAt` |
 
 ### Formulas
 
@@ -76,7 +76,7 @@ session  1.24M tok (out 82k) · $3.47
 | Event | Action |
 | --- | --- |
 | `session.start` | Read `lastReading` and `isHidden` from `$.store`; seed atoms from `$.session.usage()`; register `/quota`; start `$.clock.every(60_000)` updating the `now` atom |
-| `session.measure` | Write `rateLimits` and `cost` to atoms; when `rateLimits` is non-empty, persist `{ rateLimits, at }` to `$.store` as `lastReading` and clear the stale flag |
+| `session.measure` | Write `rateLimits` and `cost` to atoms; when `rateLimits` is non-empty, persist `{ limits, at }` to `$.store` as `lastReading` (on load, only entries that still read as limits are kept) and clear the stale flag |
 | `turn.complete` | Add `usage` (all four counts, main loop and subagents) to the `tokens` atom |
 | `session.end` (`reason: 'clear'`) | Reset the `tokens` atom (cost restarts with the session) |
 | `command.run` (`quota`) | Toggle `isHidden` in the atom and in `$.store` |
