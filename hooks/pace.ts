@@ -12,9 +12,12 @@ const LABELS: Readonly<Record<string, string>> = {
   seven_day: '7d',
 }
 
-export const windowDuration = (kind: string): number | undefined => DURATIONS_MS[kind]
+// Own keys only: `kind` comes from outside, and `toString` is not a window.
+export const windowDuration = (kind: string): number | undefined =>
+  Object.hasOwn(DURATIONS_MS, kind) ? DURATIONS_MS[kind] : undefined
 
-export const windowLabel = (kind: string): string => LABELS[kind] ?? 'lim'
+export const windowLabel = (kind: string): string =>
+  (Object.hasOwn(LABELS, kind) ? LABELS[kind] : undefined) ?? 'lim'
 
 export const isExpired = (resetsAt: string | undefined, now: number): boolean =>
   resetsAt !== undefined && Date.parse(resetsAt) <= now

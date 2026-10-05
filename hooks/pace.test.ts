@@ -27,6 +27,12 @@ describe('windows', () => {
     expect(windowDuration('spend_limit')).toBeUndefined()
     expect(windowLabel('spend_limit')).toBe('lim')
   })
+
+  test('names every object inherits are not window kinds', () => {
+    expect(windowDuration('toString')).toBeUndefined()
+    expect(windowLabel('toString')).toBe('lim')
+    expect(windowLabel('constructor')).toBe('lim')
+  })
 })
 
 describe('idealPercent', () => {

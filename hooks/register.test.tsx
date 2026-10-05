@@ -30,10 +30,21 @@ const LIMITS: SessionRateLimit[] = [
 // Answers, beneath the plugin, every engine call the module makes.
 const engine = (
   on: On,
-  options: { store?: Record<string, unknown>; rateLimits?: SessionRateLimit[] } = {},
+  options: { store?: Record<string, unknown> | Map<string, unknown>; rateLimits?: SessionRateLimit[] } = {},
 ) => {
   const clock = mock.clock(on, { now: NOW })
-  mock.store(on, options.store ?? {})
+  const store = options.store
+  if (store instanceof Map) {
+    // A store the test can change mid-run, as another session writing to it would.
+    on('store.get', ($, e) => ({ value: store.get(e.key) }))
+    on('store.set', ($, e) => {
+      store.set(e.key, e.value)
+
+      return { value: undefined }
+    })
+  } else {
+    mock.store(on, store ?? {})
+  }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.measure', ($, e) => ({ changed: e.changed }))
   on('session.end', () => ({ sessionId: 'test' }))
@@ -199,5 +210,66 @@ test('/clear starts the session row over and keeps the windows', async ($, on) =
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /^session/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /ideal 60%/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('keeps every row within the band, stale or fresh', async ($, on) => {
+  engine(on, { store: { lastReading: { limits: LIMITS, at: NOW - HOUR } } })
+  await start($)
+
+  for (const isStale of [true, false]) {
+    if (!isStale) await measure($, LIMITS, 1)
+    for (const bodyColumns of [75, 115]) {
+      const ui = await $.ui.mount({ ...BAND, surface: 'terminal', props: { ...BAND.props, bodyColumns } })
+      for (const key of ['five_hour', 'seven_day']) {
+        expect((await ui.find({ key }))?.text.length ?? Infinity).toBeLessThanOrEqual(bodyColumns)
+      }
+      await ui.unmount()
+    }
+  }
+})
+
+test('truncates the details, never the bar, on a narrow terminal', async ($, on) => {
+  engine(on)
+  await start($)
+  await measure($, LIMITS, 1)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal', props: { ...BAND.props, bodyColumns: 30 } })
+  expect((await ui.find({ key: 'five_hour-bar' }))?.props.flexShrink).toBe(0)
+  expect((await ui.find({ type: 'Text', text: /48%/ }))?.props.wrap).toBe('truncate-end')
+  await ui.unmount()
+})
+
+test('skips stored entries it cannot read and keeps the rest', async ($, on) => {
+  const limits = [null, 'x', { kind: 'five_hour', percent: 48 }, { kind: 'seven_day', percentUsed: 24, resetsAt: at(72 * HOUR) }]
+  engine(on, { store: { lastReading: { limits, at: NOW } } })
+  await start($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /24%.*\(last seen\)/ })).toBeDefined()
+  expect(await ui.find({ key: 'five_hour' })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /NaN/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('/quota hides the band even after another session hid it', async ($, on) => {
+  const store = new Map<string, unknown>()
+  engine(on, { store })
+  await start($)
+  await measure($, LIMITS, 1)
+  store.set('isHidden', true)
+
+  expect((await runQuota($)).text).toMatch(/hidden/)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /ideal/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a resumed conversation starts the session row over', async ($, on) => {
+  engine(on)
+  await start($)
+  await measure($, LIMITS, 2)
+  await complete($, [1_000, 1_000, 0, 0])
+  await $.session.end({ reason: 'resume', sessionId: 'test', resume: { id: 'other' } })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^session/ })).toBeUndefined()
   await ui.unmount()
 })
